@@ -1,5 +1,5 @@
 const http = require('http');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 
 const PORT = process.env.PORT || 3020;
@@ -26,36 +26,74 @@ async function initBrowser() {
     
     console.log('🚀 Khởi tạo trình duyệt...');
     
-    browser = await puppeteer.launch({
-        args: [
-            ...chromium.args,
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--window-size=1920,1080'
-        ],
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
-        ignoreHTTPSErrors: true
-    });
-    
-    page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
-    browser.on('disconnected', () => {
-        loggedIn = false;
-        browser = null;
-        page = null;
-        console.log('⚠️ Browser disconnected');
-    });
+    try {
+        // Cấu hình cho Render
+        const executablePath = await chromium.executablePath();
+        console.log('📂 Chromium path:', executablePath);
+        
+        browser = await puppeteer.launch({
+            args: [
+                ...chromium.args,
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--window-size=1920,1080',
+                '--disable-features=site-per-process'
+            ],
+            defaultViewport: chromium.defaultViewport,
+            executablePath: executablePath,
+            headless: chromium.headless,
+            ignoreHTTPSErrors: true
+        });
+        
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        
+        browser.on('disconnected', () => {
+            loggedIn = false;
+            browser = null;
+            page = null;
+            console.log('⚠️ Browser disconnected');
+        });
+        
+        console.log('✅ Browser initialized successfully');
+        return true;
+        
+    } catch(e) {
+        console.log('❌ Browser init error:', e.message);
+        console.log('🔄 Thử lại với cấu hình khác...');
+        
+        // Fallback: thử lại với puppeteer thường
+        try {
+            const puppeteerNormal = require('puppeteer');
+            browser = await puppeteerNormal.launch({
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu'
+                ]
+            });
+            page = await browser.newPage();
+            console.log('✅ Browser initialized with fallback');
+            return true;
+        } catch(e2) {
+            console.log('❌ Fallback also failed:', e2.message);
+            return false;
+        }
+    }
 }
 
 // ====== ĐĂNG NHẬP VCB ======
 async function loginVCB() {
     try {
-        await initBrowser();
+        const initialized = await initBrowser();
+        if (!initialized) {
+            return { success: false, message: 'Không thể khởi tạo trình duyệt' };
+        }
+        
         console.log('📱 Đang đăng nhập VCB...');
         
         await page.goto('https://ib.vietcombank.com.vn', { 
@@ -102,8 +140,8 @@ async function loginVCB() {
 // ====== LẤY LỊCH SỬ GIAO DỊCH ======
 async function getVCBHistory() {
     if (!loggedIn || !page) {
-        await loginVCB();
-        if (!loggedIn) throw new Error('Không thể đăng nhập');
+        const result = await loginVCB();
+        if (!result.success) throw new Error('Không thể đăng nhập');
     }
     
     try {
@@ -231,12 +269,8 @@ server.listen(PORT, '0.0.0.0', async () => {
     console.log('🔄 Khởi tạo trình duyệt...');
     try {
         await initBrowser();
-        console.log('✅ Browser ready');
-        
-        console.log('📡 Đang đăng nhập lần đầu...');
-        await loginVCB();
     } catch(e) {
-        console.log('⚠️ Lỗi:', e.message);
+        console.log('⚠️ Lỗi init browser:', e.message);
     }
 });
 
