@@ -1,19 +1,16 @@
-
 {
   "name": "vcb-api",
   "version": "2.0.0",
-  "description": "Vietcombank API",
+  "description": "Vietcombank API on Render",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "puppeteer": "^21.6.1",
-    "tesseract.js": "^4.1.1",
-    "sharp": "^0.33.1"
+    "@sparticuz/chromium": "^121.0.0",
+    "puppeteer": "^21.6.1"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }
-EOF
